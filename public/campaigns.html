@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Campaigns — CrowdConnect</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;0,9..40,800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/css/app.css" />
+  </head>
+  <body data-cc-page="campaigns">
+    <div id="cc-header-slot"></div>
+    <main class="container animate-in">
+      <h1 class="page-title">Explore campaigns</h1>
+      <div class="toolbar card">
+        <div class="field" style="margin: 0; flex: 1; min-width: 200px">
+          <label for="q">Search</label>
+          <input id="q" type="search" placeholder="Title or description…" />
+        </div>
+        <div class="field" style="margin: 0; min-width: 140px">
+          <label for="cat">Category</label>
+          <select id="cat">
+            <option value="">All</option>
+            <option value="education">Education</option>
+            <option value="health">Health</option>
+            <option value="environment">Environment</option>
+            <option value="community">Community</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="field" style="margin: 0; min-width: 140px">
+          <label for="st">Status</label>
+          <select id="st">
+            <option value="">Active &amp; completed</option>
+            <option value="active">Active</option>
+            <option value="completed">Completed</option>
+          </select>
+        </div>
+        <div class="field" style="margin: 0; min-width: 160px">
+          <label for="sort">Sort</label>
+          <select id="sort">
+            <option value="newest">Newest</option>
+            <option value="popular">Popular</option>
+            <option value="urgent">Ending soon</option>
+          </select>
+        </div>
+        <button type="button" class="btn btn--filled" id="apply">Apply</button>
+      </div>
+      <div class="grid-campaigns" id="list"></div>
+    </main>
+    <div id="cc-bottom-slot"></div>
+    <script src="/js/api.js"></script>
+    <script src="/js/app.js"></script>
+    <script src="/js/shell.js"></script>
+    <script>
+      function escapeHtml(s) {
+        const d = document.createElement("div");
+        d.textContent = s;
+        return d.innerHTML;
+      }
+      function pct(c) {
+        return Math.min(100, Math.round((c.raisedAmount / c.goalAmount) * 100) || 0);
+      }
+      function emojiCat(cat) {
+        const m = { education: "📚", health: "🏥", environment: "🌿", community: "🤝", other: "💡" };
+        return m[cat] || "💡";
+      }
+      async function load() {
+        const params = new URLSearchParams();
+        const q = document.getElementById("q").value.trim();
+        const cat = document.getElementById("cat").value;
+        const st = document.getElementById("st").value;
+        const sort = document.getElementById("sort").value;
+        if (q) params.set("search", q);
+        if (cat) params.set("category", cat);
+        if (st) params.set("status", st);
+        if (sort) params.set("sort", sort);
+        const list = document.getElementById("list");
+        try {
+          const { campaigns } = await CCApi.request("/campaigns?" + params.toString());
+          if (!campaigns.length) {
+            list.innerHTML = '<p class="text-muted">No campaigns match your filters.</p>';
+            return;
+          }
+          list.innerHTML = campaigns
+            .map(
+              (c) => `
+          <article class="card campaign-card" data-id="${c._id}">
+            <div class="campaign-card__media">${emojiCat(c.category)}</div>
+            <span class="text-muted" style="font-size:0.75rem;text-transform:uppercase">${c.status}</span>
+            <h3 class="campaign-card__title">${escapeHtml(c.title)}</h3>
+            <p class="campaign-card__meta">₹${Number(c.raisedAmount).toLocaleString()} / ₹${Number(c.goalAmount).toLocaleString()} · ${c.donorCount} donors</p>
+            <div class="progress"><div class="progress__bar" style="width:${pct(c)}%"></div></div>
+          </article>`
+            )
+            .join("");
+          list.querySelectorAll(".campaign-card").forEach((el) => {
+            el.addEventListener("click", () => (location.href = "/campaign-detail.html?id=" + el.dataset.id));
+          });
+        } catch (e) {
+          list.innerHTML = '<p class="text-muted">Could not load campaigns. Is the server running?</p>';
+        }
+      }
+      document.getElementById("apply").addEventListener("click", load);
+      document.addEventListener("DOMContentLoaded", load);
+    </script>
+  </body>
+</html>

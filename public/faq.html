@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>FAQ — CrowdConnect</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/css/app.css" />
+  </head>
+  <body data-cc-page="home">
+    <div id="cc-header-slot"></div>
+    <main class="container animate-in" style="max-width: 720px">
+      <h1 class="page-title">Frequently asked questions</h1>
+      <div class="card" id="faq"></div>
+    </main>
+    <div id="cc-bottom-slot"></div>
+    <script src="/js/api.js"></script>
+    <script src="/js/app.js"></script>
+    <script src="/js/shell.js"></script>
+    <script>
+      function escapeHtml(s) {
+        const d = document.createElement("div");
+        d.textContent = s;
+        return d.innerHTML;
+      }
+      document.addEventListener("DOMContentLoaded", async () => {
+        const el = document.getElementById("faq");
+        try {
+          const { faq } = await CCApi.request("/support/faq");
+          el.innerHTML = faq
+            .map(
+              (f, i) => `
+            <div class="faq-item ${i === 0 ? "is-open" : ""}">
+              <button type="button">${escapeHtml(f.question)}</button>
+              <div class="faq-item__body">${escapeHtml(f.answer)}</div>
+            </div>`
+            )
+            .join("");
+          el.querySelectorAll(".faq-item button").forEach((btn) => {
+            btn.addEventListener("click", () => btn.closest(".faq-item").classList.toggle("is-open"));
+          });
+        } catch {
+          el.innerHTML = "<p class=\"text-muted\">FAQ will appear when the API is running.</p>";
+        }
+      });
+    </script>
+  </body>
+</html>

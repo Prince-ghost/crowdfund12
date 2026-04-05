@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Admin — CrowdConnect</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/css/app.css" />
+  </head>
+  <body data-cc-page="profile">
+    <div id="cc-header-slot"></div>
+    <main class="container animate-in">
+      <h1 class="page-title">Admin dashboard</h1>
+      <p id="gate" class="text-muted"></p>
+      <div id="panel" class="hidden">
+        <div class="toolbar card" style="flex-wrap: wrap">
+          <button type="button" class="btn btn--filled" data-tab="summary">Summary</button>
+          <button type="button" class="btn btn--outlined" data-tab="pending">Pending campaigns</button>
+          <button type="button" class="btn btn--outlined" data-tab="donations">Donations</button>
+          <button type="button" class="btn btn--outlined" data-tab="users">Users</button>
+          <button type="button" class="btn btn--outlined" data-tab="tickets">Tickets</button>
+        </div>
+        <div class="card" style="margin-top: 20px; min-height: 200px" id="content"></div>
+      </div>
+    </main>
+    <div id="cc-bottom-slot"></div>
+    <script src="/js/api.js"></script>
+    <script src="/js/app.js"></script>
+    <script src="/js/shell.js"></script>
+    <script>
+      const content = document.getElementById("content");
+      function escapeHtml(s) {
+        const d = document.createElement("div");
+        d.textContent = s;
+        return d.innerHTML;
+      }
+      async function requireStaff() {
+        const gate = document.getElementById("gate");
+        if (!CCApi.getToken()) {
+          gate.innerHTML = '<a href="/auth/login.html">Log in</a> as staff.';
+          return false;
+        }
+        try {
+          const { user } = await CCApi.request("/auth/me");
+          if (user.role !== "superadmin" && user.role !== "moderator") {
+            gate.textContent = "You do not have admin access.";
+            return false;
+          }
+          document.getElementById("panel").classList.remove("hidden");
+          return true;
+        } catch {
+          gate.textContent = "Session expired.";
+          return false;
+        }
+      }
+      function setActiveTab(name) {
+        document.querySelectorAll("[data-tab]").forEach((b) => {
+          b.classList.toggle("btn--filled", b.getAttribute("data-tab") === name);
+          b.classList.toggle("btn--outlined", b.getAttribute("data-tab") !== name);
+        });
+      }
+      async function loadSummary() {
+        const s = await CCApi.request("/admin/analytics/summary");
+        const L = s.lifetime;
+        content.innerHTML = `
+          <h2 class="mt-0" style="font-size:1.125rem">Analytics</h2>
+          <p>Completed donations: <strong>${L.count}</strong></p>
+          <p>Total charged: <strong>₹${Number(L.totalRaised || 0).toLocaleString()}</strong></p>
+          <p>Net to campaigns: <strong>₹${Number(L.totalNet || 0).toLocaleString()}</strong></p>
+          <p>Platform fees: <strong>₹${Number(L.totalFees || 0).toLocaleString()}</strong></p>
+          <p>This month: <strong>₹${Number(s.thisMonth || 0).toLocaleString()}</strong></p>
+          <h3>Top campaigns</h3>
+          <ul style="padding-left:1.25rem">${s.topCampaigns.map((c) => `<li>${escapeHtml(c.title)} — ₹${Number(c.raisedAmount).toLocaleString()}</li>`).join("")}</ul>`;
+      }
+      async function loadPending() {
+        const { campaigns } = await CCApi.request("/admin/campaigns/pending");
+        content.innerHTML =
+          campaigns.length === 0
+            ? "<p class='text-muted'>No pending campaigns.</p>"
+            : campaigns
+                .map(
+                  (c) => `<div class="card mb-2" style="box-shadow:none;border-style:dashed">
+            <strong>${escapeHtml(c.title)}</strong>
+            <p class="text-muted">${escapeHtml((c.creator && c.creator.email) || "")}</p>
+            <div class="flex gap-2" style="flex-wrap:wrap;margin-top:8px">
+              <button type="button" class="btn btn--filled" data-ap="${c._id}" data-st="active">Approve</button>
+              <button type="button" class="btn btn--outlined" data-ap="${c._id}" data-st="rejected">Reject</button>
+            </div>
+          </div>`
+                )
+                .join("");
+        content.querySelectorAll("[data-ap]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const id = btn.getAttribute("data-ap");
+            const status = btn.getAttribute("data-st");
+            await CCApi.request("/admin/campaigns/" + id + "/status", { method: "PATCH", body: { status } });
+            loadPending();
+          });
+        });
+      }
+      async function loadDonations() {
+        const { donations } = await CCApi.request("/admin/donations");
+        content.innerHTML =
+          "<table style='width:100%;border-collapse:collapse;font-size:0.875rem'><thead><tr><th align='left'>Campaign</th><th>Amount</th><th>Status</th></tr></thead><tbody>" +
+          donations
+            .map(
+              (d) =>
+                `<tr style='border-top:1px solid var(--md-sys-color-outline)'><td>${escapeHtml(d.campaign?.title || "")}</td><td>₹${Number(d.amount).toLocaleString()}</td><td>${d.status}</td></tr>`
+            )
+            .join("") +
+          "</tbody></table>";
+      }
+      async function loadUsers() {
+        const { users } = await CCApi.request("/users");
+        content.innerHTML = users
+          .map(
+            (u) => `<div class="flex justify-between items-center mb-2" style="flex-wrap:wrap;gap:8px">
+          <span>${escapeHtml(u.name)} — ${escapeHtml(u.email)} <small class="text-muted">${u.role}</small></span>
+          ${
+            u.role === "user"
+              ? `<button type="button" class="btn btn--text" data-block="${u._id}">${u.blocked ? "Unblock" : "Block"}</button>`
+              : ""
+          }
+        </div>`
+          )
+          .join("");
+        content.querySelectorAll("[data-block]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            await CCApi.request("/users/" + btn.getAttribute("data-block") + "/block", { method: "PATCH" });
+            loadUsers();
+          });
+        });
+      }
+      async function loadTickets() {
+        const { tickets } = await CCApi.request("/support/admin/tickets");
+        content.innerHTML =
+          tickets.length === 0
+            ? "<p class='text-muted'>No tickets.</p>"
+            : tickets
+                .map(
+                  (t) => `<div class="card mb-2" style="box-shadow:none">
+            <strong>${escapeHtml(t.subject)}</strong> <span class="text-muted">${t.status}</span>
+            <p class="text-muted" style="font-size:0.8125rem">${escapeHtml(t.email)}</p>
+            <p style="font-size:0.875rem">${escapeHtml((t.messages && t.messages[0] && t.messages[0].text) || "")}</p>
+          </div>`
+                )
+                .join("");
+      }
+      document.querySelectorAll("[data-tab]").forEach((b) => {
+        b.addEventListener("click", async () => {
+          const tab = b.getAttribute("data-tab");
+          setActiveTab(tab);
+          content.innerHTML = "Loading…";
+          try {
+            if (tab === "summary") await loadSummary();
+            if (tab === "pending") await loadPending();
+            if (tab === "donations") await loadDonations();
+            if (tab === "users") await loadUsers();
+            if (tab === "tickets") await loadTickets();
+          } catch (e) {
+            content.innerHTML = "<p class='text-muted'>" + escapeHtml(e.message) + "</p>";
+          }
+        });
+      });
+      document.addEventListener("DOMContentLoaded", async () => {
+        if (await requireStaff()) {
+          setActiveTab("summary");
+          try {
+            await loadSummary();
+          } catch (e) {
+            content.innerHTML = "<p class='text-muted'>" + escapeHtml(e.message) + "</p>";
+          }
+        }
+      });
+    </script>
+  </body>
+</html>

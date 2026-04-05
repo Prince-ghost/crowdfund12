@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Donate — CrowdConnect</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/css/app.css" />
+  </head>
+  <body data-cc-page="donations">
+    <div id="cc-header-slot"></div>
+    <main class="container animate-in" style="max-width: 520px">
+      <h1 class="page-title">Donate</h1>
+      <div id="camp-line" class="text-muted mb-2"></div>
+      <form id="f" class="card">
+        <div class="field">
+          <label for="amount">Amount (₹)</label>
+          <input id="amount" type="number" min="1" step="1" required value="500" />
+        </div>
+        <div class="field">
+          <label for="pm">Payment method</label>
+          <select id="pm">
+            <option value="razorpay">Razorpay</option>
+            <option value="stripe">Stripe</option>
+            <option value="paypal">PayPal</option>
+            <option value="mock">Demo (mock)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="coupon">Coupon (optional)</label>
+          <input id="coupon" type="text" placeholder="SAVE10" />
+        </div>
+        <button type="button" class="btn btn--text" id="apply-coupon">Apply coupon</button>
+        <div class="card" style="margin-top:16px;background:var(--md-sys-color-surface)">
+          <h3 class="mt-0" style="font-size:1rem">Summary</h3>
+          <p class="mb-2">Base: ₹<span id="s-base">0</span></p>
+          <p class="mb-2">Discount: ₹<span id="s-disc">0</span></p>
+          <p class="mb-2"><strong>You pay: ₹<span id="s-pay">0</span></strong></p>
+          <p class="text-muted" style="font-size:0.8125rem">Live gateways require API keys in <code>.env</code>. Until then, use Demo (mock).</p>
+        </div>
+        <button type="submit" class="btn btn--filled" style="width:100%;margin-top:16px">Complete donation</button>
+      </form>
+    </main>
+    <div id="cc-bottom-slot"></div>
+    <script src="/js/api.js"></script>
+    <script src="/js/app.js"></script>
+    <script src="/js/shell.js"></script>
+    <script>
+      const params = new URLSearchParams(location.search);
+      const campaignId = params.get("id");
+      let summary = { base: 0, discount: 0, pay: 0 };
+
+      function syncSummary() {
+        const base = parseFloat(document.getElementById("amount").value, 10) || 0;
+        summary.base = base;
+        summary.pay = Math.max(1, Math.round((base - summary.discount) * 100) / 100);
+        document.getElementById("s-base").textContent = base.toLocaleString();
+        document.getElementById("s-disc").textContent = summary.discount.toLocaleString();
+        document.getElementById("s-pay").textContent = summary.pay.toLocaleString();
+      }
+
+      document.getElementById("amount").addEventListener("input", () => {
+        summary.discount = 0;
+        syncSummary();
+      });
+
+      document.getElementById("apply-coupon").addEventListener("click", async () => {
+        const code = document.getElementById("coupon").value.trim();
+        const amount = parseFloat(document.getElementById("amount").value, 10);
+        if (!code) return alert("Enter a coupon code");
+        try {
+          const r = await CCApi.request("/coupons/validate", { method: "POST", body: { code, amount } });
+          if (!r.valid) return alert(r.message || "Invalid coupon");
+          summary.discount = r.discount;
+          syncSummary();
+        } catch (e) {
+          alert(e.message);
+        }
+      });
+
+      document.getElementById("f").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        if (!CCApi.getToken()) {
+          location.href = "/auth/login.html?next=" + encodeURIComponent(location.pathname + location.search);
+          return;
+        }
+        const base = parseFloat(document.getElementById("amount").value, 10);
+        if (!base || base < 1) return alert("Enter a valid amount");
+        const body = {
+          campaignId,
+          amount: base,
+          paymentMethod: document.getElementById("pm").value,
+        };
+        const c = document.getElementById("coupon").value.trim();
+        if (c) body.couponCode = c;
+        try {
+          const res = await CCApi.request("/donations", { method: "POST", body });
+          alert("Thank you! Transaction: " + res.donation.transactionId);
+          location.href = "/donations.html";
+        } catch (err) {
+          alert(err.message);
+        }
+      });
+
+      async function loadCamp() {
+        if (!campaignId) {
+          document.getElementById("camp-line").textContent = "Missing campaign.";
+          return;
+        }
+        try {
+          const { campaign } = await CCApi.request("/campaigns/" + campaignId);
+          document.getElementById("camp-line").innerHTML = "<strong>" + campaign.title + "</strong>";
+          if (campaign.status !== "active") {
+            document.getElementById("f").innerHTML = "<p>This campaign is not accepting donations.</p>";
+          }
+        } catch {
+          document.getElementById("camp-line").textContent = "Campaign not found.";
+        }
+        syncSummary();
+      }
+      document.addEventListener("DOMContentLoaded", loadCamp);
+    </script>
+  </body>
+</html>

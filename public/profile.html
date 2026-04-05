@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Profile — CrowdConnect</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/css/app.css" />
+  </head>
+  <body data-cc-page="profile">
+    <div id="cc-header-slot"></div>
+    <main class="container animate-in dashboard-layout">
+      <aside class="dashboard-sidebar" id="sidebar">
+        <a href="/profile.html" class="is-active">Profile</a>
+        <a href="/donations.html">Donations</a>
+        <a href="/campaigns.html">Campaigns</a>
+        <a href="/admin/dashboard.html" class="hidden" data-admin-link>Admin</a>
+      </aside>
+      <div>
+        <h1 class="page-title">Profile</h1>
+        <div id="guest" class="card hidden">
+          <p>Log in to edit your profile and view donation history.</p>
+          <a href="/auth/login.html" class="btn btn--filled">Log in</a>
+        </div>
+        <div id="user-panel" class="hidden">
+          <div class="card mb-2">
+            <h2 class="mt-0" style="font-size: 1.125rem">Account</h2>
+            <form id="prof">
+              <div class="field">
+                <label for="name">Name</label>
+                <input id="name" required />
+              </div>
+              <div class="field">
+                <label for="email">Email</label>
+                <input id="email" type="email" required />
+              </div>
+              <button type="submit" class="btn btn--filled">Save profile</button>
+            </form>
+          </div>
+          <div class="card mb-2">
+            <h2 class="mt-0" style="font-size: 1.125rem">Change password</h2>
+            <form id="pw">
+              <div class="field">
+                <label for="cur">Current password</label>
+                <input id="cur" type="password" required />
+              </div>
+              <div class="field">
+                <label for="newp">New password</label>
+                <input id="newp" type="password" minlength="6" required />
+              </div>
+              <button type="submit" class="btn btn--outlined">Update password</button>
+            </form>
+          </div>
+          <button type="button" class="btn btn--text" id="logout">Log out</button>
+        </div>
+      </div>
+    </main>
+    <div id="cc-bottom-slot"></div>
+    <script src="/js/api.js"></script>
+    <script src="/js/app.js"></script>
+    <script src="/js/shell.js"></script>
+    <script>
+      function showGuest() {
+        document.getElementById("guest").classList.remove("hidden");
+        document.getElementById("user-panel").classList.add("hidden");
+      }
+      function showUser() {
+        document.getElementById("guest").classList.add("hidden");
+        document.getElementById("user-panel").classList.remove("hidden");
+      }
+      async function loadMe() {
+        if (!CCApi.getToken()) {
+          showGuest();
+          return;
+        }
+        try {
+          const { user } = await CCApi.request("/auth/me");
+          document.getElementById("name").value = user.name;
+          document.getElementById("email").value = user.email;
+          localStorage.setItem("cc_user", JSON.stringify(user));
+          showUser();
+          try {
+            const u = JSON.parse(localStorage.getItem("cc_user") || "{}");
+            if (u.role === "superadmin" || u.role === "moderator") {
+              document.querySelector("#sidebar [data-admin-link]")?.classList.remove("hidden");
+            }
+          } catch (_) {}
+        } catch {
+          CCApi.setToken(null);
+          localStorage.removeItem("cc_user");
+          showGuest();
+        }
+      }
+      document.getElementById("prof").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        try {
+          await CCApi.request("/auth/profile", {
+            method: "PATCH",
+            body: { name: document.getElementById("name").value, email: document.getElementById("email").value },
+          });
+          alert("Profile saved");
+          loadMe();
+        } catch (err) {
+          alert(err.message);
+        }
+      });
+      document.getElementById("pw").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        try {
+          await CCApi.request("/auth/change-password", {
+            method: "POST",
+            body: { currentPassword: document.getElementById("cur").value, newPassword: document.getElementById("newp").value },
+          });
+          alert("Password updated");
+          document.getElementById("pw").reset();
+        } catch (err) {
+          alert(err.message);
+        }
+      });
+      document.getElementById("logout").addEventListener("click", () => {
+        CCApi.setToken(null);
+        localStorage.removeItem("cc_user");
+        location.href = "/index.html";
+      });
+      document.addEventListener("DOMContentLoaded", loadMe);
+    </script>
+  </body>
+</html>

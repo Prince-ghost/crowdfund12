@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>My donations — CrowdConnect</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/css/app.css" />
+  </head>
+  <body data-cc-page="donations">
+    <div id="cc-header-slot"></div>
+    <main class="container animate-in">
+      <h1 class="page-title">Donation history</h1>
+      <div id="list"></div>
+    </main>
+    <div id="cc-bottom-slot"></div>
+    <script src="/js/api.js"></script>
+    <script src="/js/app.js"></script>
+    <script src="/js/shell.js"></script>
+    <script>
+      async function load() {
+        const list = document.getElementById("list");
+        if (!CCApi.getToken()) {
+          list.innerHTML = '<p><a href="/auth/login.html">Log in</a> to see your donations.</p>';
+          return;
+        }
+        try {
+          const { donations } = await CCApi.request("/donations/mine");
+          if (!donations.length) {
+            list.innerHTML = '<p class="text-muted">You have not donated yet. <a href="/campaigns.html">Explore campaigns</a></p>';
+            return;
+          }
+          list.innerHTML = donations
+            .map(
+              (d) => `
+          <div class="card mb-2">
+            <div class="flex justify-between items-center" style="flex-wrap:wrap;gap:8px">
+              <div>
+                <strong>${d.campaign ? d.campaign.title : "Campaign"}</strong>
+                <p class="text-muted mb-2">₹${Number(d.amount).toLocaleString()} · ${d.status} · ${d.paymentMethod}</p>
+                <p class="text-muted" style="font-size:0.8125rem">TXN: ${d.transactionId}</p>
+              </div>
+              <div class="flex gap-2">
+                <button type="button" class="btn btn--outlined" data-receipt="${d._id}">Receipt</button>
+                ${
+                  d.campaign && d.campaign.status === "active"
+                    ? `<a class="btn btn--filled" href="/donate.html?id=${d.campaign._id}">Donate again</a>`
+                    : ""
+                }
+              </div>
+            </div>
+          </div>`
+            )
+            .join("");
+          list.querySelectorAll("[data-receipt]").forEach((btn) => {
+            btn.addEventListener("click", async () => {
+              const id = btn.getAttribute("data-receipt");
+              try {
+                const res = await fetch("/api/donations/" + id + "/receipt", {
+                  headers: { Authorization: "Bearer " + CCApi.getToken() },
+                });
+                if (!res.ok) throw new Error("Could not download");
+                const blob = await res.blob();
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = "receipt.txt";
+                a.click();
+                URL.revokeObjectURL(a.href);
+              } catch {
+                alert("Receipt download failed.");
+              }
+            });
+          });
+        } catch (e) {
+          list.innerHTML = "<p class=\"text-muted\">Could not load donations.</p>";
+        }
+      }
+      document.addEventListener("DOMContentLoaded", load);
+    </script>
+  </body>
+</html>
