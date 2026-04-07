@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Admin Panel — CrowdConnect</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/app.css" />
+  </head>
+  <body data-cc-page="dashboard">
+    <div id="cc-header-slot"></div>
+    <main class="container animate-in admin-shell">
+      <p id="gate" class="text-muted"></p>
+
+      <div class="dash-layout" id="admin-wrap" style="display: none">
+        <aside class="dash-sidebar" aria-label="Admin navigation">
+          <a href="/admin/dashboard.html" class="text-muted" style="display: inline-block; margin-bottom: 10px; text-decoration: none">
+            ← Back to Site
+          </a>
+          <div class="dash-sidebar__title font-display">Dashboard Overview</div>
+          <nav class="dash-sidebar__nav">
+            <a href="/admin/dashboard.html" class="dash-nav-item is-active">Overview</a>
+            <a href="/admin/campaigns.html" class="dash-nav-item">Campaigns</a>
+            <a href="/admin/donations.html" class="dash-nav-item">Donations</a>
+            <a href="/admin/users.html" class="dash-nav-item">Users</a>
+            <a href="/admin/messages.html" class="dash-nav-item">Messages</a>
+            <a href="/faq.html" class="dash-nav-item">FAQ</a>
+          </nav>
+        </aside>
+
+        <section class="dash-main">
+          <h1 class="dash-h1 font-display">Dashboard Overview</h1>
+
+          <div class="dash-cards" aria-label="Key metrics">
+            <div class="dash-card">
+              <div class="dash-card__label">Total Raised</div>
+              <div class="dash-card__value" id="kpi-total-raised">₹0</div>
+            </div>
+            <div class="dash-card">
+              <div class="dash-card__label">Active Campaigns</div>
+              <div class="dash-card__value" id="kpi-active-campaigns">0</div>
+            </div>
+            <div class="dash-card">
+              <div class="dash-card__label">Total Donors</div>
+              <div class="dash-card__value" id="kpi-total-donors">0</div>
+            </div>
+            <div class="dash-card">
+              <div class="dash-card__label">Registered Users</div>
+              <div class="dash-card__value" id="kpi-registered-users">0</div>
+            </div>
+          </div>
+
+          <div class="dash-charts">
+            <div class="dash-panel">
+              <div class="dash-panel__head">
+                <div class="dash-panel__title">Monthly Donations</div>
+              </div>
+              <div class="dash-bar-wrap" id="monthly-bars" aria-label="Monthly donations chart"></div>
+            </div>
+
+            <div class="dash-panel">
+              <div class="dash-panel__head">
+                <div class="dash-panel__title">Campaigns by Category</div>
+              </div>
+              <div class="dash-pie-wrap">
+                <div class="dash-pie" id="category-pie" aria-label="Pie chart"></div>
+                <div class="dash-legend" id="category-legend"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+    <div id="cc-bottom-slot"></div>
+    <script src="/js/api.js"></script>
+    <script src="/js/app.js"></script>
+    <script src="/js/shell.js"></script>
+    <script>
+      function fmtINR(n) {
+        return "₹" + Number(n || 0).toLocaleString("en-IN");
+      }
+
+      function makeBarChart(el, series) {
+        el.innerHTML = "";
+        const max = Math.max(...series.map((s) => s.total || 0), 1);
+        el.style.display = "flex";
+        el.style.gap = "10px";
+        el.style.alignItems = "flex-end";
+        el.style.padding = "10px 4px 6px";
+
+        series.forEach((p) => {
+          const h = Math.round(((p.total || 0) / max) * 100);
+          const col = document.createElement("div");
+          col.style.flex = "1";
+          col.style.display = "flex";
+          col.style.flexDirection = "column";
+          col.style.alignItems = "center";
+
+          const bar = document.createElement("div");
+          bar.style.width = "100%";
+          bar.style.maxWidth = "64px";
+          bar.style.height = h + "%";
+          bar.style.background = "var(--md-sys-color-primary)";
+          bar.style.borderRadius = "8px 8px 0 0";
+
+          const lbl = document.createElement("div");
+          lbl.style.fontSize = "0.75rem";
+          lbl.style.color = "var(--md-sys-color-on-surface-variant)";
+          lbl.style.marginTop = "8px";
+          lbl.textContent = (p.day || "—").slice(0, 6);
+
+          col.appendChild(bar);
+          col.appendChild(lbl);
+          el.appendChild(col);
+        });
+      }
+
+      function makePie(el, legendEl, items) {
+        const total = items.reduce((a, b) => a + (b.totalRaised || 0), 0) || 1;
+        const colors = ["#ea580c", "#f97316", "#b45309", "#d97706", "#f59e0b", "#7c2d12"];
+        let start = 0;
+        const segs = items.map((it, idx) => {
+          const pct = ((it.totalRaised || 0) / total) * 100;
+          const from = start;
+          const to = start + pct;
+          start = to;
+          return { ...it, pct, color: colors[idx % colors.length], from, to };
+        });
+
+        el.style.width = "180px";
+        el.style.height = "180px";
+        el.style.borderRadius = "50%";
+        el.style.background =
+          "conic-gradient(" +
+          segs.map((s) => `${s.color} ${s.from.toFixed(2)}% ${s.to.toFixed(2)}%`).join(", ") +
+          ")";
+        el.style.maskImage = "radial-gradient(circle, transparent 58%, #000 60%)";
+        el.style.webkitMaskImage = "radial-gradient(circle, transparent 58%, #000 60%)";
+
+        legendEl.innerHTML = "";
+        segs.forEach((s) => {
+          const row = document.createElement("div");
+          row.style.display = "flex";
+          row.style.alignItems = "center";
+          row.style.gap = "10px";
+          row.style.marginBottom = "10px";
+          const sw = document.createElement("span");
+          sw.style.width = "10px";
+          sw.style.height = "10px";
+          sw.style.borderRadius = "3px";
+          sw.style.background = s.color;
+          const tx = document.createElement("div");
+          tx.style.fontSize = "0.86rem";
+          tx.innerHTML = `<strong>${s.category}</strong> <span style="color:var(--md-sys-color-on-surface-variant)">(${Math.round(
+            s.pct
+          )}%)</span>`;
+          row.appendChild(sw);
+          row.appendChild(tx);
+          legendEl.appendChild(row);
+        });
+      }
+
+      async function loadAdminOverview() {
+        const gate = document.getElementById("gate");
+        if (!CCApi.getToken()) {
+          gate.innerHTML = '<a href="/auth/login.html">Log in</a> as staff.';
+          return;
+        }
+        try {
+          const { user } = await CCApi.request("/auth/me");
+          if (user.role !== "superadmin" && user.role !== "moderator") {
+            gate.textContent = "You do not have admin access.";
+            return;
+          }
+
+          document.getElementById("admin-wrap").style.display = "grid";
+          gate.textContent = "";
+
+          const dash = await CCApi.request("/admin/analytics/dashboard");
+          const c = dash.cards || {};
+
+          document.getElementById("kpi-total-raised").textContent = fmtINR(c.totalRaised);
+          document.getElementById("kpi-active-campaigns").textContent = String(c.activeCampaigns || 0);
+          document.getElementById("kpi-total-donors").textContent = String(c.totalDonors || 0);
+          document.getElementById("kpi-registered-users").textContent = String(c.registeredUsers || 0);
+
+          const series = (dash.monthlyDonationsByDay || []).slice(-10);
+          makeBarChart(document.getElementById("monthly-bars"), series.length ? series : [{ day: "—", total: 0 }]);
+
+          const pieItems = (dash.categoryTotals || []).slice(0, 5);
+          makePie(document.getElementById("category-pie"), document.getElementById("category-legend"), pieItems);
+        } catch (e) {
+          gate.textContent = e.message || "Could not load admin overview.";
+        }
+      }
+
+      document.addEventListener("DOMContentLoaded", loadAdminOverview);
+    </script>
+  </body>
+</html>

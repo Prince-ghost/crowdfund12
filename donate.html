@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Donate — CrowdConnect</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/app.css" />
+  </head>
+  <body data-cc-page="donations">
+    <div id="cc-header-slot"></div>
+
+    <main class="container animate-in donate-wrap">
+      <div class="donate-topbar">
+        <a id="back-link" class="text-muted" href="/campaigns.html">← Back</a>
+      </div>
+
+      <div class="donate-grid">
+        <section class="donate-left card" aria-label="Campaign">
+          <div class="donate-media" id="donate-media">
+            <div class="donate-media__placeholder" id="media-ph">No image</div>
+            <img id="camp-img" alt="" />
+          </div>
+          <div class="donate-left__body">
+            <span class="section__eyebrow" id="camp-cat">Category</span>
+            <h1 class="donate-title font-display" id="camp-title">Campaign title</h1>
+            <p class="text-muted mb-2" id="camp-by">by Creator</p>
+
+            <div class="donate-progress">
+              <div class="progress">
+                <div class="progress__bar" id="camp-progress-bar" style="width: 0%"></div>
+              </div>
+              <p class="text-muted mb-2" id="camp-amount-line"></p>
+            </div>
+          </div>
+        </section>
+
+        <aside class="donate-right card" aria-label="Checkout">
+          <div class="donate-checkout-head">
+            <div class="donate-raised">
+              <span class="donate-raised__big" id="s-raised">₹0</span>
+              <span class="donate-raised__sub text-muted" id="s-of">raised of ₹0 goal</span>
+            </div>
+            <div class="donate-smallbar">
+              <div class="progress">
+                <div class="progress__bar" id="s-progress-bar" style="width: 0%"></div>
+              </div>
+              <p class="text-muted" id="s-donors">0 donors</p>
+              <p class="text-muted" id="s-deadline"></p>
+            </div>
+          </div>
+
+          <form id="f" class="donate-form">
+            <div class="field">
+              <label for="amount">Donation amount (₹)</label>
+              <input id="amount" type="number" min="1" step="1" required value="500" />
+            </div>
+
+            <div class="field">
+              <label>Payment method</label>
+              <input type="hidden" id="pm" value="mock" />
+              <div class="method-grid" role="radiogroup" aria-label="Payment method">
+                <button type="button" class="method-pill is-active" data-method="razorpay">Razorpay</button>
+                <button type="button" class="method-pill" data-method="stripe">Stripe</button>
+                <button type="button" class="method-pill" data-method="paypal">PayPal</button>
+                <button type="button" class="method-pill" data-method="mock">Demo (mock)</button>
+              </div>
+              <p class="text-muted" style="font-size: 0.8125rem; margin: 8px 0 0">
+                Until payment gateways are configured in <code>.env</code>, use <strong>Demo (mock)</strong>.
+              </p>
+            </div>
+
+            <div class="field">
+              <label for="coupon">Coupon (optional)</label>
+              <input id="coupon" type="text" placeholder="SAVE10" />
+            </div>
+            <button type="button" class="btn btn--text" id="apply-coupon">Apply coupon</button>
+
+            <div class="card donate-summary" aria-label="Donation summary">
+              <h3 class="mt-0" style="font-size: 1rem">Summary</h3>
+              <p class="mb-2">Base: ₹<span id="s-base">0</span></p>
+              <p class="mb-2">Discount: ₹<span id="s-disc">0</span></p>
+              <p class="mb-2">
+                <strong>You pay: ₹<span id="s-pay">0</span></strong>
+              </p>
+            </div>
+
+            <button type="submit" class="btn btn--filled donate-submit" style="width: 100%">Donate Now</button>
+          </form>
+        </aside>
+      </div>
+    </main>
+
+    <div id="cc-bottom-slot"></div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/app.js"></script>
+    <script src="/js/shell.js"></script>
+    <script>
+      const params = new URLSearchParams(location.search);
+      const campaignId = params.get("id");
+
+      const CAT_LABEL = {
+        education: "Education",
+        health: "Health",
+        environment: "Environment",
+        community: "Community",
+        other: "Community",
+      };
+
+      let summary = { base: 0, discount: 0, pay: 0 };
+
+      function pct(c) {
+        return Math.min(100, Math.round((c.raisedAmount / c.goalAmount) * 100) || 0);
+      }
+
+      function daysLeft(c) {
+        if (!c.deadline) return null;
+        const d = new Date(c.deadline);
+        const days = Math.ceil((d - Date.now()) / 86400000);
+        return days >= 0 ? days : null;
+      }
+
+      function syncSummary() {
+        const base = parseFloat(document.getElementById("amount").value, 10) || 0;
+        summary.base = base;
+        summary.pay = Math.max(1, Math.round((base - summary.discount) * 100) / 100);
+        document.getElementById("s-base").textContent = base.toLocaleString();
+        document.getElementById("s-disc").textContent = summary.discount.toLocaleString();
+        document.getElementById("s-pay").textContent = summary.pay.toLocaleString();
+      }
+
+      document.getElementById("amount").addEventListener("input", () => {
+        summary.discount = 0;
+        syncSummary();
+      });
+
+      document.getElementById("apply-coupon").addEventListener("click", async () => {
+        const code = document.getElementById("coupon").value.trim();
+        const amount = parseFloat(document.getElementById("amount").value, 10);
+        if (!code) return alert("Enter a coupon code");
+        try {
+          const r = await CCApi.request("/coupons/validate", {
+            method: "POST",
+            body: { code, amount },
+          });
+          if (!r.valid) return alert(r.message || "Invalid coupon");
+          summary.discount = r.discount;
+          syncSummary();
+        } catch (e) {
+          alert(e.message);
+        }
+      });
+
+      document.querySelectorAll("[data-method]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll(".method-pill").forEach((b) => b.classList.remove("is-active"));
+          btn.classList.add("is-active");
+          document.getElementById("pm").value = btn.getAttribute("data-method");
+        });
+      });
+
+      document.getElementById("f").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        if (!CCApi.getToken()) {
+          location.href = "/auth/login.html?next=" + encodeURIComponent(location.pathname + location.search);
+          return;
+        }
+
+        const base = parseFloat(document.getElementById("amount").value, 10);
+        if (!base || base < 1) return alert("Enter a valid amount");
+
+        const payload = {
+          campaignId,
+          amount: base,
+          paymentMethod: document.getElementById("pm").value,
+        };
+
+        const c = document.getElementById("coupon").value.trim();
+        if (c) payload.couponCode = c;
+
+        try {
+          const res = await CCApi.request("/donations", { method: "POST", body: payload });
+          alert("Thank you! Transaction: " + res.donation.transactionId);
+          location.href = "/donations.html";
+        } catch (err) {
+          alert(err.message);
+        }
+      });
+
+      function escapeHtml(s) {
+        const d = document.createElement("div");
+        d.textContent = s;
+        return d.innerHTML;
+      }
+
+      async function loadCamp() {
+        if (!campaignId) return;
+        document.getElementById("back-link").href = "/campaign-detail.html?id=" + campaignId;
+
+        try {
+          const { campaign } = await CCApi.request("/campaigns/" + campaignId);
+
+          document.getElementById("camp-cat").textContent = CAT_LABEL[campaign.category] || "Community";
+          document.getElementById("camp-title").textContent = campaign.title;
+          document.getElementById("camp-by").textContent = campaign.creator && campaign.creator.name ? "by " + campaign.creator.name : "";
+
+          const media = (campaign.media || [])[0];
+          const img = document.getElementById("camp-img");
+          const ph = document.getElementById("media-ph");
+          if (media) {
+            img.src = media;
+            img.style.display = "block";
+            ph.style.display = "none";
+          } else {
+            img.style.display = "none";
+            ph.style.display = "block";
+          }
+
+          const p = pct(campaign);
+          document.getElementById("camp-progress-bar").style.width = p + "%";
+          document.getElementById("s-progress-bar").style.width = p + "%";
+
+          document.getElementById("s-raised").textContent =
+            "₹" + Number(campaign.raisedAmount).toLocaleString();
+          document.getElementById("s-of").textContent =
+            "raised of ₹" + Number(campaign.goalAmount).toLocaleString() + " goal";
+
+          document.getElementById("s-donors").textContent =
+            Number(campaign.donorCount).toLocaleString() + " donors";
+
+          const dl = daysLeft(campaign);
+          const urgentTxt = dl !== null ? (dl <= 21 ? "Ending soon" : "Running") : "";
+          document.getElementById("s-deadline").textContent =
+            dl !== null ? dl + " days left" + (urgentTxt ? " · " + urgentTxt : "") : "Deadline not set";
+
+          document.getElementById("camp-amount-line").textContent =
+            "₹" +
+            Number(campaign.raisedAmount).toLocaleString() +
+            " raised of ₹" +
+            Number(campaign.goalAmount).toLocaleString();
+
+          if (campaign.status !== "active") {
+            document.getElementById("f").innerHTML = "<p class='text-muted'>This campaign is not accepting donations.</p>";
+          }
+        } catch {
+          document.querySelector(".donate-grid").innerHTML = "<p class='text-muted'>Campaign not found.</p>";
+        }
+        syncSummary();
+      }
+
+      document.addEventListener("DOMContentLoaded", loadCamp);
+    </script>
+  </body>
+</html>

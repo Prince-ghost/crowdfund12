@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Users — Admin Panel</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/app.css" />
+  </head>
+  <body data-cc-page="dashboard">
+    <div id="cc-header-slot"></div>
+
+    <main class="container animate-in admin-shell">
+      <p id="gate" class="text-muted"></p>
+
+      <div class="dash-layout" id="admin-wrap" style="display: none">
+        <aside class="dash-sidebar" aria-label="Admin navigation">
+          <a href="/admin/dashboard.html" class="text-muted" style="display: inline-block; margin-bottom: 10px; text-decoration: none">
+            ← Back to Admin Overview
+          </a>
+          <div class="dash-sidebar__title font-display">Admin Panel</div>
+          <nav class="dash-sidebar__nav">
+            <a href="/admin/dashboard.html" class="dash-nav-item">Overview</a>
+            <a href="/admin/campaigns.html" class="dash-nav-item">Campaigns</a>
+            <a href="/admin/donations.html" class="dash-nav-item">Donations</a>
+            <a href="/admin/users.html" class="dash-nav-item is-active">Users</a>
+            <a href="/admin/messages.html" class="dash-nav-item">Messages</a>
+            <a href="/faq.html" class="dash-nav-item">FAQ</a>
+          </nav>
+        </aside>
+
+        <section class="dash-main">
+          <div class="dash-main__head">
+            <h1 class="dash-h1 font-display">Users</h1>
+          </div>
+
+          <div class="card table-shell">
+            <div class="table-head" style="grid-template-columns: 2.2fr 2.2fr 1fr 1fr 1fr">
+              <div>Name</div>
+              <div>Email</div>
+              <div>Role</div>
+              <div>Status</div>
+              <div class="table-actions">Actions</div>
+            </div>
+            <div id="tbl-body" class="table-body">
+              <p class="text-muted">Loading users…</p>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <div id="cc-bottom-slot"></div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/app.js"></script>
+    <script src="/js/shell.js"></script>
+    <script>
+      function pill(text, ok) {
+        return '<span class="pill ' + (ok ? "pill--success" : "pill--muted") + '">' + text + "</span>";
+      }
+
+      function escapeHtml(s) {
+        const d = document.createElement("div");
+        d.textContent = s || "";
+        return d.innerHTML;
+      }
+
+      async function requireStaff() {
+        const gate = document.getElementById("gate");
+        if (!CCApi.getToken()) {
+          gate.innerHTML = '<a href="/auth/login.html">Log in</a> as staff.';
+          return null;
+        }
+        const { user } = await CCApi.request("/auth/me");
+        if (user.role !== "superadmin" && user.role !== "moderator") {
+          gate.textContent = "You do not have admin access.";
+          return null;
+        }
+        document.getElementById("admin-wrap").style.display = "grid";
+        gate.textContent = "";
+        return user;
+      }
+
+      async function loadUsers() {
+        const staff = await requireStaff();
+        if (!staff) return;
+
+        const body = document.getElementById("tbl-body");
+        try {
+          const { users } = await CCApi.request("/users");
+          body.innerHTML = users
+            .map((u) => {
+              const active = !u.blocked;
+              return `
+              <div class="table-row" style="grid-template-columns: 2.2fr 2.2fr 1fr 1fr 1fr" data-id="${u._id}">
+                <div class="table-cell">${escapeHtml(u.name || "")}</div>
+                <div class="table-cell">${escapeHtml(u.email || "")}</div>
+                <div class="table-cell">${escapeHtml(u.role || "")}</div>
+                <div class="table-cell">${pill(active ? "active" : "blocked", active)}</div>
+                <div class="table-cell table-actions">
+                  ${
+                    u.role === "user"
+                      ? `<button type="button" class="icon-btn-sm" data-act="toggle" title="Block/Unblock">${active ? "⛔" : "✅"}</button>`
+                      : ""
+                  }
+                </div>
+              </div>`;
+            })
+            .join("");
+
+          body.querySelectorAll("[data-act='toggle']").forEach((btn) => {
+            btn.addEventListener("click", async () => {
+              const row = btn.closest(".table-row");
+              const id = row.getAttribute("data-id");
+              await CCApi.request("/users/" + id + "/block", { method: "PATCH" });
+              loadUsers();
+            });
+          });
+        } catch (e) {
+          body.innerHTML = "<p class='text-muted'>Could not load users.</p>";
+        }
+      }
+
+      document.addEventListener("DOMContentLoaded", loadUsers);
+    </script>
+  </body>
+</html>
+

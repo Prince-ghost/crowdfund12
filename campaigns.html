@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Campaign Management — CrowdConnect</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/app.css" />
+  </head>
+  <body data-cc-page="dashboard">
+    <div id="cc-header-slot"></div>
+
+    <main class="container animate-in admin-shell">
+      <div class="dash-layout">
+        <aside class="dash-sidebar" aria-label="Dashboard navigation">
+          <div class="dash-sidebar__title font-display">Campaign Management</div>
+          <nav class="dash-sidebar__nav">
+            <a href="/admin/dashboard.html" class="dash-nav-item">Overview</a>
+            <a href="/admin/campaigns.html" class="dash-nav-item is-active">Campaigns</a>
+            <a href="/admin/donations.html" class="dash-nav-item">Donations</a>
+            <a href="/admin/users.html" class="dash-nav-item">Users</a>
+            <a href="/admin/messages.html" class="dash-nav-item">Messages</a>
+            <a href="/faq.html" class="dash-nav-item">FAQ</a>
+          </nav>
+        </aside>
+
+        <section class="dash-main">
+          <div class="dash-main__head">
+            <h1 class="dash-h1 font-display">Campaign Management</h1>
+            <button type="button" class="btn btn--filled btn--nav-cta" id="cc-open-create">
+              + Add Campaign
+            </button>
+          </div>
+
+          <div class="card table-shell" aria-label="Campaigns table">
+            <div class="table-head">
+              <div>Campaign</div>
+              <div>Category</div>
+              <div>Goal</div>
+              <div>Raised</div>
+              <div>Status</div>
+              <div class="table-actions">Actions</div>
+            </div>
+            <div id="tbl-body" class="table-body">
+              <p class="text-muted">Loading campaigns…</p>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <div id="cc-bottom-slot"></div>
+
+    <!-- Create campaign modal -->
+    <div class="cc-modal-overlay" id="cc-create-overlay" aria-hidden="true">
+      <div class="cc-modal" role="dialog" aria-modal="true" aria-label="Create campaign">
+        <div class="cc-modal-head">
+          <div class="cc-modal-title font-display">Create Campaign</div>
+          <button type="button" class="cc-modal-close" id="cc-close-create" aria-label="Close">
+            ✕
+          </button>
+        </div>
+
+        <form id="cc-create-form" class="cc-modal-form">
+          <div class="cc-modal-grid">
+            <div class="field">
+              <label for="cc-create-title">Title</label>
+              <input id="cc-create-title" type="text" required />
+            </div>
+
+            <div class="field">
+              <label for="cc-create-short-desc">Short Description</label>
+              <textarea id="cc-create-short-desc" required maxlength="300"></textarea>
+            </div>
+
+            <div class="field" style="grid-column: 1 / -1">
+              <label for="cc-create-desc">Description</label>
+              <textarea id="cc-create-desc" maxlength="2000" placeholder="Optional details…"></textarea>
+            </div>
+
+            <div class="field">
+              <label for="cc-create-category">Category</label>
+              <select id="cc-create-category">
+                <option value="education">Education</option>
+                <option value="health">Health</option>
+                <option value="environment">Environment</option>
+                <option value="community">Community</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="cc-create-status">Status</label>
+              <select id="cc-create-status">
+                <option value="pending">pending</option>
+                <option value="active" selected>active</option>
+                <option value="completed">completed</option>
+                <option value="rejected">rejected</option>
+                <option value="blocked">blocked</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="cc-create-goal">Goal Amount (₹)</label>
+              <input id="cc-create-goal" type="number" min="1" step="1" required value="50000" />
+            </div>
+
+            <div class="field">
+              <label for="cc-create-deadline">Deadline</label>
+              <input id="cc-create-deadline" type="date" />
+            </div>
+
+            <div class="field" style="grid-column: 1 / -1">
+              <label for="cc-create-image-url">Image URL (optional)</label>
+              <input id="cc-create-image-url" type="text" placeholder="https://…" />
+            </div>
+
+            <!-- UI only (not stored by backend in this demo) -->
+            <div class="field">
+              <label for="cc-create-creator-name">Creator Name (UI)</label>
+              <input id="cc-create-creator-name" type="text" placeholder="Name" />
+            </div>
+            <div class="field">
+              <label for="cc-create-creator-email">Creator Email (UI)</label>
+              <input id="cc-create-creator-email" type="email" placeholder="email@example.com" />
+            </div>
+          </div>
+
+          <div class="cc-modal-actions">
+            <button type="button" class="btn btn--outlined" id="cc-cancel-create">Cancel</button>
+            <button type="submit" class="btn btn--filled">Create</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Edit campaign modal -->
+    <div class="cc-modal-overlay" id="cc-edit-overlay" aria-hidden="true">
+      <div class="cc-modal" role="dialog" aria-modal="true" aria-label="Edit campaign">
+        <div class="cc-modal-head">
+          <div class="cc-modal-title font-display">Edit Campaign</div>
+          <button type="button" class="cc-modal-close" id="cc-close-edit" aria-label="Close">
+            ✕
+          </button>
+        </div>
+
+        <form id="cc-edit-form" class="cc-modal-form">
+          <input type="hidden" id="cc-edit-id" />
+          <div class="cc-modal-grid">
+            <div class="field">
+              <label for="cc-edit-title">Title</label>
+              <input id="cc-edit-title" type="text" required />
+            </div>
+
+            <div class="field" style="grid-column: 1 / -1">
+              <label for="cc-edit-desc">Description</label>
+              <textarea id="cc-edit-desc" required maxlength="2000" rows="4"></textarea>
+            </div>
+
+            <div class="field">
+              <label for="cc-edit-category">Category</label>
+              <select id="cc-edit-category">
+                <option value="education">Education</option>
+                <option value="health">Health</option>
+                <option value="environment">Environment</option>
+                <option value="community">Community</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="cc-edit-goal">Goal Amount (₹)</label>
+              <input id="cc-edit-goal" type="number" min="1" step="1" required />
+            </div>
+
+            <div class="field">
+              <label for="cc-edit-deadline">Deadline</label>
+              <input id="cc-edit-deadline" type="date" />
+            </div>
+
+            <div class="field">
+              <label style="display:flex; align-items:center; gap:8px;">
+                <input id="cc-edit-featured" type="checkbox" />
+                Featured Campaign
+              </label>
+            </div>
+          </div>
+
+          <div class="cc-modal-actions">
+            <button type="button" class="btn btn--outlined" id="cc-cancel-edit">Cancel</button>
+            <button type="submit" class="btn btn--filled">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/app.js"></script>
+    <script src="/js/shell.js"></script>
+    <script>
+      function fmt(n) {
+        return "₹" + Number(n || 0).toLocaleString("en-IN");
+      }
+
+      function badge(status) {
+        const s = String(status || "").toLowerCase();
+        const cls = s === "active" ? "pill--success" : s === "completed" ? "pill--neutral" : "pill--muted";
+        return '<span class="pill ' + cls + '">' + (status || "Unknown") + "</span>";
+      }
+
+      async function loadCampaigns() {
+        const body = document.getElementById("tbl-body");
+        try {
+          if (!CCApi.getToken()) {
+            body.innerHTML =
+              '<p class="text-muted">Please log in as staff to manage campaigns.</p><a href="/auth/login.html" class="btn btn--filled">Log in</a>';
+            return;
+          }
+          const { user } = await CCApi.request("/auth/me");
+          if (!(user.role === "superadmin" || user.role === "moderator")) {
+            body.innerHTML = '<p class="text-muted">You do not have permission to manage campaigns.</p>';
+            return;
+          }
+
+          const { campaigns } = await CCApi.request("/campaigns?status=");
+          if (!campaigns.length) {
+            body.innerHTML = '<p class="text-muted">No campaigns yet.</p>';
+            return;
+          }
+
+          body.innerHTML = campaigns
+            .map((c) => {
+              return `
+              <div class="table-row" data-id="${c._id}">
+                <div class="table-cell table-cell--main">
+                  <div class="table-title">${escapeHtml(c.title)}</div>
+                  <div class="table-sub text-muted">${c.creator && c.creator.name ? escapeHtml(c.creator.name) : ""}</div>
+                </div>
+                <div class="table-cell">${escapeHtml(c.category || "")}</div>
+                <div class="table-cell">${fmt(c.goalAmount)}</div>
+                <div class="table-cell">${fmt(c.raisedAmount)}</div>
+                <div class="table-cell">${badge(c.status)}</div>
+                <div class="table-cell table-actions">
+                  <button type="button" class="icon-btn-sm" data-act="block" title="Toggle block">&#128711;</button>
+                  <button type="button" class="icon-btn-sm" data-act="edit" title="Edit">&#9998;</button>
+                  <button type="button" class="icon-btn-sm" data-act="delete" title="Delete">&#128465;</button>
+                </div>
+              </div>`;
+            })
+            .join("");
+
+          body.querySelectorAll(".table-row").forEach((row) => {
+            const id = row.getAttribute("data-id");
+            
+            // Re-bind modal so clicking anywhere on the row opens Edit
+            row.addEventListener("click", (e) => {
+              // Ignore if we clicked an action button (they handle themselves)
+              if (e.target.closest(".icon-btn-sm") || e.target.closest("button")) return;
+              openEditModal(id);
+            });
+            
+            row.style.cursor = "pointer"; // Add pointer cursor to show it's clickable
+            
+            row.querySelectorAll("[data-act]").forEach((btn) => {
+              const act = btn.getAttribute("data-act");
+              if (act === "delete") {
+                btn.addEventListener("click", async () => {
+                  if (!confirm("Delete this campaign?")) return;
+                  await CCApi.request("/admin/campaigns/" + id, { method: "DELETE" });
+                  row.remove();
+                });
+              } else if (act === "block") {
+                btn.addEventListener("click", async () => {
+                  const next = row.querySelector(".pill").textContent.trim() === "active" ? "blocked" : "active";
+                  await CCApi.request("/admin/campaigns/" + id + "/status", {
+                    method: "PATCH",
+                    body: { status: next },
+                  });
+                  row.querySelector(".table-cell:nth-child(5)").innerHTML = badge(next);
+                });
+              } else if (act === "edit") {
+                openEditModal(id);
+              }
+            });
+          });
+        } catch (e) {
+          console.error(e);
+          body.innerHTML = '<p class="text-muted">Could not load campaigns.</p>';
+        }
+      }
+
+      function escapeHtml(s) {
+        const d = document.createElement("div");
+        d.textContent = s || "";
+        return d.innerHTML;
+      }
+
+      document.addEventListener("DOMContentLoaded", loadCampaigns);
+
+      // Modal behavior
+      const overlay = document.getElementById("cc-create-overlay");
+      const openBtn = document.getElementById("cc-open-create");
+      const closeBtn = document.getElementById("cc-close-create");
+      const cancelBtn = document.getElementById("cc-cancel-create");
+      const form = document.getElementById("cc-create-form");
+
+      function openModal() {
+        if (!overlay) return;
+        overlay.classList.add("is-open");
+        overlay.setAttribute("aria-hidden", "false");
+      }
+
+      function closeModal() {
+        if (!overlay) return;
+        overlay.classList.remove("is-open");
+        overlay.setAttribute("aria-hidden", "true");
+      }
+
+      openBtn?.addEventListener("click", openModal);
+      closeBtn?.addEventListener("click", closeModal);
+      cancelBtn?.addEventListener("click", closeModal);
+      overlay?.addEventListener("click", (e) => {
+        if (e.target === overlay) closeModal();
+      });
+
+      form?.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        try {
+          const title = document.getElementById("cc-create-title").value.trim();
+          const shortDesc = document.getElementById("cc-create-short-desc").value.trim();
+          const desc2 = document.getElementById("cc-create-desc").value.trim();
+          const description = desc2 ? shortDesc + "\\n\\n" + desc2 : shortDesc;
+
+          const payload = {
+            title,
+            description,
+            category: document.getElementById("cc-create-category").value,
+            status: document.getElementById("cc-create-status").value,
+            goalAmount: parseFloat(document.getElementById("cc-create-goal").value),
+            deadline: document.getElementById("cc-create-deadline").value || undefined,
+            mediaUrl: (() => {
+              const v = document.getElementById("cc-create-image-url").value.trim();
+              return v ? v : undefined;
+            })(),
+            featured: false,
+          };
+
+          await CCApi.request("/admin/campaigns", { method: "POST", body: payload });
+          closeModal();
+          await loadCampaigns();
+
+          form.reset();
+          // restore defaults
+          document.getElementById("cc-create-status").value = "active";
+          document.getElementById("cc-create-goal").value = "50000";
+        } catch (err) {
+          alert(err.message || "Create campaign failed");
+        }
+      });
+
+      // Edit Modal logic
+      const editOverlay = document.getElementById("cc-edit-overlay");
+      const editForm = document.getElementById("cc-edit-form");
+      
+      function closeEditModal() {
+        if (!editOverlay) return;
+        editOverlay.classList.remove("is-open");
+        editOverlay.setAttribute("aria-hidden", "true");
+      }
+
+      document.getElementById("cc-close-edit")?.addEventListener("click", closeEditModal);
+      document.getElementById("cc-cancel-edit")?.addEventListener("click", closeEditModal);
+      editOverlay?.addEventListener("click", (e) => {
+        if (e.target === editOverlay) closeEditModal();
+      });
+
+      async function openEditModal(id) {
+        try {
+          const res = await CCApi.request("/campaigns/" + id);
+          const c = res.campaign;
+          
+          document.getElementById("cc-edit-id").value = c._id;
+          document.getElementById("cc-edit-title").value = c.title || "";
+          document.getElementById("cc-edit-desc").value = c.description || "";
+          document.getElementById("cc-edit-category").value = c.category || "other";
+          document.getElementById("cc-edit-goal").value = c.goalAmount || "";
+          
+          if (c.deadline) {
+            document.getElementById("cc-edit-deadline").value = new Date(c.deadline).toISOString().split('T')[0];
+          } else {
+            document.getElementById("cc-edit-deadline").value = "";
+          }
+          
+          document.getElementById("cc-edit-featured").checked = !!c.featured;
+          
+          editOverlay.classList.add("is-open");
+          editOverlay.setAttribute("aria-hidden", "false");
+        } catch (err) {
+          alert("Could not load campaign details.");
+        }
+      }
+
+      editForm?.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        try {
+          const id = document.getElementById("cc-edit-id").value;
+          const payload = {
+            title: document.getElementById("cc-edit-title").value.trim(),
+            description: document.getElementById("cc-edit-desc").value.trim(),
+            category: document.getElementById("cc-edit-category").value,
+            goalAmount: parseFloat(document.getElementById("cc-edit-goal").value),
+            deadline: document.getElementById("cc-edit-deadline").value || undefined,
+            featured: document.getElementById("cc-edit-featured").checked,
+          };
+          
+          await CCApi.request("/admin/campaigns/" + id, { method: "PATCH", body: payload });
+          closeEditModal();
+          await loadCampaigns();
+        } catch (err) {
+          alert(err.message || "Failed to update campaign");
+        }
+      });
+    </script>
+  </body>
+</html>
+

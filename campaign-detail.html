@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Campaign — CrowdConnect</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;0,9..40,800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/css/app.css" />
+  </head>
+  <body data-cc-page="campaigns">
+    <div id="cc-header-slot"></div>
+    <main class="container animate-in" id="main">
+      <p class="text-muted" id="loading">Loading…</p>
+    </main>
+    <div id="cc-bottom-slot"></div>
+    <script src="/js/api.js"></script>
+    <script src="/js/app.js"></script>
+    <script src="/js/shell.js"></script>
+    <script>
+      function escapeHtml(s) {
+        const d = document.createElement("div");
+        d.textContent = s;
+        return d.innerHTML;
+      }
+      function pct(c) {
+        return Math.min(100, Math.round((c.raisedAmount / c.goalAmount) * 100) || 0);
+      }
+      const params = new URLSearchParams(location.search);
+      const id = params.get("id");
+      async function load() {
+        const main = document.getElementById("main");
+        if (!id) {
+          main.innerHTML = '<p class="text-muted">Missing campaign id.</p>';
+          return;
+        }
+        try {
+          const { campaign: c, related } = await CCApi.request("/campaigns/" + id);
+          document.title = escapeHtml(c.title) + " — CrowdConnect";
+          const media =
+            (c.media && c.media.length && c.media.map((m) => `<img src="${m}" alt="" style="margin-bottom:8px" />`).join("")) ||
+            '<div class="campaign-card__media" style="margin:0 0 16px;border-radius:var(--radius-lg)">💡</div>';
+          const updates =
+            (c.updates || [])
+              .slice()
+              .reverse()
+              .map((u) => `<li class="mb-2"><strong>${escapeHtml(u.title)}</strong><br/><span class="text-muted">${escapeHtml(u.body)}</span></li>`)
+              .join("") || "<li class='text-muted'>No updates yet.</li>";
+          const comments = (c.comments || [])
+            .slice()
+            .reverse()
+            .map((cm) => {
+              const name = cm.user && cm.user.name ? cm.user.name : "Donor";
+              return `<li class="mb-2"><strong>${escapeHtml(name)}</strong> — ${escapeHtml(cm.text)}</li>`;
+            })
+            .join("");
+          main.innerHTML = `
+          <article>
+            <h1 class="page-title">${escapeHtml(c.title)}</h1>
+            <p class="text-muted">${c.category} · ${c.status}</p>
+            ${media}
+            <div class="card mb-2">
+              <p style="white-space:pre-wrap">${escapeHtml(c.description)}</p>
+              <div class="progress" style="margin-top:16px"><div class="progress__bar" style="width:${pct(c)}%"></div></div>
+              <p class="mt-0"><strong>₹${Number(c.raisedAmount).toLocaleString()}</strong> raised of ₹${Number(c.goalAmount).toLocaleString()} · <strong>${c.donorCount}</strong> donors</p>
+              ${
+                c.status === "active"
+                  ? `<a href="/donate.html?id=${c._id}" class="btn btn--filled" style="margin-top:12px;width:100%">Donate now</a>`
+                  : '<p class="text-muted">This campaign is not accepting donations.</p>'
+              }
+            </div>
+            <h2>Updates</h2>
+            <ul style="list-style:none;padding:0">${updates}</ul>
+            <h2>Comments</h2>
+            <div class="card">
+              <ul style="list-style:none;padding:0;margin:0 0 16px">${comments || '<li class="text-muted">No comments yet.</li>'}</ul>
+              <form id="cf">
+                <div class="field" style="margin-bottom:8px">
+                  <label for="ct">Add a comment</label>
+                  <textarea id="ct" required maxlength="2000"></textarea>
+                </div>
+                <button type="submit" class="btn btn--outlined">Post</button>
+              </form>
+            </div>
+            <h2>Related</h2>
+            <div class="grid-campaigns" id="rel"></div>
+          </article>`;
+          document.getElementById("cf").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            if (!CCApi.getToken()) {
+              alert("Please log in to comment.");
+              location.href = "/auth/login.html?next=" + encodeURIComponent(location.pathname + location.search);
+              return;
+            }
+            try {
+              await CCApi.request("/campaigns/" + id + "/comments", {
+                method: "POST",
+                body: { text: document.getElementById("ct").value },
+              });
+              location.reload();
+            } catch (err) {
+              alert(err.message);
+            }
+          });
+          const rel = document.getElementById("rel");
+          rel.innerHTML = related
+            .map(
+              (r) => `
+            <article class="card campaign-card" data-rid="${r._id}">
+              <h3 class="campaign-card__title">${escapeHtml(r.title)}</h3>
+              <p class="campaign-card__meta">${pct(r)}% funded</p>
+            </article>`
+            )
+            .join("");
+          rel.querySelectorAll(".campaign-card").forEach((el) => {
+            el.addEventListener("click", () => (location.href = "/campaign-detail.html?id=" + el.dataset.rid));
+          });
+        } catch (e) {
+          main.innerHTML = '<p class="text-muted">Campaign not found.</p>';
+        }
+      }
+      document.addEventListener("DOMContentLoaded", load);
+    </script>
+  </body>
+</html>

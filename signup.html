@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Sign up — CrowdConnect</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/css/app.css" />
+  </head>
+  <body data-cc-page="profile">
+    <div id="cc-header-slot"></div>
+    <main class="container animate-in" style="max-width: 420px; padding-top: 32px">
+      <h1 class="page-title">Create account</h1>
+      <p class="text-muted">Join CrowdConnect to support social projects.</p>
+      <form id="f" class="card" style="margin-top: 24px">
+        <div class="field">
+          <label for="name">Full name</label>
+          <input id="name" type="text" required />
+        </div>
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" type="email" autocomplete="email" required />
+        </div>
+        <div class="field">
+          <label for="password">Password (min 6)</label>
+          <input id="password" type="password" autocomplete="new-password" minlength="6" required />
+          <button type="button" class="btn btn--text" id="toggle-password" style="padding: 0; min-height: 32px; justify-content: flex-start">
+            Show password
+          </button>
+        </div>
+        <p id="err" class="text-muted hidden" style="color: #b91c1c; margin-bottom: 12px"></p>
+        <button type="submit" class="btn btn--filled" id="submit-btn" style="width: 100%">Sign up</button>
+        <p class="text-muted" style="margin-top: 16px; text-align: center">Already have an account? <a href="/auth/login.html">Log in</a></p>
+      </form>
+    </main>
+    <div id="cc-bottom-slot"></div>
+    <script src="/js/api.js"></script>
+    <script src="/js/app.js"></script>
+    <script src="/js/shell.js"></script>
+    <script>
+      document.getElementById("f").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const errEl = document.getElementById("err");
+        const btn = document.getElementById("submit-btn");
+        errEl.classList.add("hidden");
+        errEl.textContent = "";
+        const name = document.getElementById("name").value.trim();
+        const email = document.getElementById("email").value.trim();
+        const password = document.getElementById("password").value;
+        if (!name || !email || password.length < 6) {
+          errEl.textContent = "Please fill all fields. Password must be at least 6 characters.";
+          errEl.classList.remove("hidden");
+          return;
+        }
+        btn.disabled = true;
+        try {
+          const data = await CCApi.request("/auth/signup", {
+            method: "POST",
+            body: { name, email, password },
+          });
+          if (!data.token) {
+            throw new Error("No token returned — check server logs.");
+          }
+          CCApi.setToken(data.token);
+          localStorage.setItem("cc_user", JSON.stringify(data.user));
+          location.href = "/campaigns.html";
+        } catch (err) {
+          errEl.textContent = err.message || "Sign up failed. Open this site from the app server (e.g. http://localhost:3000), not Live Preview.";
+          errEl.classList.remove("hidden");
+        } finally {
+          btn.disabled = false;
+        }
+      });
+
+      const toggleBtn = document.getElementById("toggle-password");
+      const passInput = document.getElementById("password");
+      toggleBtn.addEventListener("click", () => {
+        const nextType = passInput.type === "password" ? "text" : "password";
+        passInput.type = nextType;
+        toggleBtn.textContent = nextType === "password" ? "Show password" : "Hide password";
+      });
+    </script>
+  </body>
+</html>

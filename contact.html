@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Contact — CrowdConnect</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/css/app.css" />
+  </head>
+  <body data-cc-page="home">
+    <div id="cc-header-slot"></div>
+    <main class="container animate-in" style="max-width: 520px">
+      <h1 class="page-title">Contact us</h1>
+      <p class="text-muted">Questions about campaigns, donations, or partnerships? Send a message.</p>
+      <form id="f" class="card" style="margin-top: 20px">
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" type="email" required />
+        </div>
+        <div class="field">
+          <label for="subject">Subject</label>
+          <input id="subject" required />
+        </div>
+        <div class="field">
+          <label for="msg">Message</label>
+          <textarea id="msg" required></textarea>
+        </div>
+        <button type="submit" class="btn btn--filled" style="width: 100%">Send</button>
+      </form>
+    </main>
+    <div id="cc-bottom-slot"></div>
+    <script src="/js/api.js"></script>
+    <script src="/js/app.js"></script>
+    <script src="/js/shell.js"></script>
+    <script>
+      document.getElementById("f").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        try {
+          await CCApi.request("/support/contact", {
+            method: "POST",
+            body: {
+              email: document.getElementById("email").value,
+              subject: document.getElementById("subject").value,
+              message: document.getElementById("msg").value,
+            },
+          });
+          alert("Thanks — we received your message.");
+          e.target.reset();
+        } catch (err) {
+          alert(err.message);
+        }
+      });
+    </script>
+  </body>
+</html>

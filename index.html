@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>CrowdConnect — Crowdfunding for Social Projects</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/app.css" />
+  </head>
+  <body data-cc-page="home">
+    <div id="cc-header-slot"></div>
+
+    <section class="hero hero--immersive" id="home-hero" aria-label="Hero">
+      <div class="hero__bg" aria-hidden="true"></div>
+      <div class="hero__inner container">
+        <span class="hero__badge">🧡 Funding Social Impact</span>
+        <h1 class="hero__headline font-display">
+          <span class="hero__headline-line">Turn Compassion</span>
+          <span class="hero__headline-line hero__headline-line--accent">Into Action</span>
+        </h1>
+        <p class="hero__lead">
+          CrowdConnect links donors with verified social projects in education, health, environment, and community—so compassion becomes measurable impact.
+        </p>
+        <div class="hero__actions">
+          <a href="/campaigns.html" class="btn btn--filled btn--hero-primary">Support a Cause <span aria-hidden="true">→</span></a>
+          <a href="/index.html#how" class="btn btn--hero-ghost">Learn more</a>
+        </div>
+        <div class="hero__stats">
+          <div>
+            <strong>₹2.1M+</strong>
+            <span>Funds raised</span>
+          </div>
+          <div>
+            <strong>850+</strong>
+            <span>Projects funded</span>
+          </div>
+          <div>
+            <strong>12K+</strong>
+            <span>Global donors</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <main class="container animate-in">
+      <section class="section section--featured" id="featured">
+        <div class="section__head">
+          <span class="section__eyebrow">Make an impact</span>
+          <h2>Featured campaigns</h2>
+          <p>Discover projects that are changing lives and communities around the world.</p>
+        </div>
+        <div class="grid-campaigns" id="featured-grid"></div>
+      </section>
+
+      <section class="section" id="stories">
+        <div class="section__head">
+          <span class="section__eyebrow">Stories</span>
+          <h2>Success stories</h2>
+          <p>What donors and organizers tell us.</p>
+        </div>
+        <div class="testimonials">
+          <div class="card quote">
+            <p>“We hit our classroom goal in three weeks. The dashboard made it easy to thank every donor.”</p>
+            <cite>— Priya, Education NGO</cite>
+          </div>
+          <div class="card quote">
+            <p>“I finally have one place to discover vetted social projects and track my giving.”</p>
+            <cite>— Marcus, recurring donor</cite>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="how">
+        <div class="section__head">
+          <span class="section__eyebrow">Simple</span>
+          <h2>How it works</h2>
+          <p>From discovery to receipt — a simple journey.</p>
+        </div>
+        <div class="steps">
+          <div class="step">
+            <div class="step__num">1</div>
+            <h3 class="mt-0 font-display">Explore</h3>
+            <p class="text-muted">Browse campaigns by category, urgency, and funding status.</p>
+          </div>
+          <div class="step">
+            <div class="step__num">2</div>
+            <h3 class="mt-0 font-display">Donate</h3>
+            <p class="text-muted">Choose an amount, optional coupon, and pay with your preferred method.</p>
+          </div>
+          <div class="step">
+            <div class="step__num">3</div>
+            <h3 class="mt-0 font-display">Track</h3>
+            <p class="text-muted">View history, download receipts, and follow project updates.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="faq-preview">
+        <div class="section__head">
+          <span class="section__eyebrow">Help</span>
+          <h2>FAQ</h2>
+          <p><a href="/faq.html">View all questions →</a></p>
+        </div>
+        <div class="card" id="faq-home-list"></div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="site-footer__grid">
+        <div>
+          <strong class="font-display">CrowdConnect</strong>
+          <p class="text-muted">Crowdfunding platform for social projects. Built with Node.js, Express, and MongoDB.</p>
+        </div>
+        <div>
+          <strong>Explore</strong>
+          <p><a href="/campaigns.html">Campaigns</a><br /><a href="/faq.html">FAQ</a><br /><a href="/contact.html">Contact</a></p>
+        </div>
+        <div>
+          <strong>Account</strong>
+          <p><a href="/auth/login.html">Log in</a><br /><a href="/auth/signup.html">Sign up</a><br /><a href="/profile.html">Profile</a></p>
+        </div>
+      </div>
+    </footer>
+
+    <div id="cc-bottom-slot"></div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/app.js"></script>
+    <script src="/js/shell.js"></script>
+    <script>
+      const CAT_LABEL = {
+        education: "Education",
+        health: "Health",
+        environment: "Environment",
+        community: "Community",
+        other: "Community",
+      };
+
+      function snippet(s, n) {
+        if (!s) return "";
+        const t = String(s)
+          .replace(/\s+/g, " ")
+          .trim();
+        return t.length <= n ? t : t.slice(0, n) + "…";
+      }
+
+      function isUrgent(c) {
+        if (!c.deadline) return false;
+        const d = new Date(c.deadline);
+        const days = Math.ceil((d - Date.now()) / 86400000);
+        return days > 0 && days <= 21;
+      }
+
+      function daysLeft(c) {
+        if (!c.deadline) return null;
+        const d = new Date(c.deadline);
+        const days = Math.ceil((d - Date.now()) / 86400000);
+        return days >= 0 ? days : null;
+      }
+
+      async function loadFeatured() {
+        const grid = document.getElementById("featured-grid");
+        try {
+          const { campaigns } = await CCApi.request("/campaigns/featured");
+          if (!campaigns.length) {
+            const { campaigns: all } = await CCApi.request("/campaigns?status=active");
+            campaigns.push(...all.slice(0, 6));
+          }
+          grid.innerHTML = campaigns
+            .slice(0, 6)
+            .map((c) => {
+              const cat = CAT_LABEL[c.category] || "Community";
+              const urgent = isUrgent(c);
+              const dl = daysLeft(c);
+              const tags = [`<span class="campaign-card__tag">${cat}</span>`];
+              if (urgent) tags.push(`<span class="campaign-card__tag campaign-card__tag--urgent">Urgent</span>`);
+              return `
+            <article class="card campaign-card campaign-card--rich" data-id="${c._id}">
+              <div class="campaign-card__media">
+                <div class="campaign-card__tags">${tags.join("")}</div>
+                ${emojiCat(c.category)}
+              </div>
+              <div class="campaign-card__body">
+                <h3 class="campaign-card__title">${escapeHtml(c.title)}</h3>
+                <p class="campaign-card__desc">${escapeHtml(snippet(c.description, 120))}</p>
+                <div class="progress"><div class="progress__bar" style="width:${pct(c)}%"></div></div>
+                <div class="campaign-card__foot">
+                  <span>${pct(c)}% funded</span>
+                  <span>🎯 ${c.donorCount} donors${dl !== null ? ` · ⏱ ${dl}d left` : ""}</span>
+                </div>
+              </div>
+            </article>`;
+            })
+            .join("");
+          grid.querySelectorAll(".campaign-card").forEach((el) => {
+            el.addEventListener("click", () => (location.href = "/campaign-detail.html?id=" + el.dataset.id));
+          });
+        } catch (e) {
+          grid.innerHTML = '<p class="text-muted">Connect MongoDB and run <code>npm run seed</code> to see campaigns.</p>';
+        }
+      }
+      function emojiCat(cat) {
+        const m = { education: "📚", health: "🏥", environment: "🌿", community: "🤝", other: "💡" };
+        return m[cat] || "💡";
+      }
+      function pct(c) {
+        return Math.min(100, Math.round((c.raisedAmount / c.goalAmount) * 100) || 0);
+      }
+      function escapeHtml(s) {
+        const d = document.createElement("div");
+        d.textContent = s;
+        return d.innerHTML;
+      }
+      async function loadFaqPreview() {
+        const el = document.getElementById("faq-home-list");
+        try {
+          const { faq } = await CCApi.request("/support/faq");
+          el.innerHTML = faq
+            .slice(0, 3)
+            .map(
+              (f, i) => `
+            <div class="faq-item ${i === 0 ? "is-open" : ""}">
+              <button type="button">${escapeHtml(f.question)}</button>
+              <div class="faq-item__body">${escapeHtml(f.answer)}</div>
+            </div>`
+            )
+            .join("");
+          el.querySelectorAll(".faq-item button").forEach((btn) => {
+            btn.addEventListener("click", () => btn.closest(".faq-item").classList.toggle("is-open"));
+          });
+        } catch {
+          el.innerHTML = "<p class=\"text-muted\">FAQ will load when the API is available.</p>";
+        }
+      }
+      document.addEventListener("DOMContentLoaded", () => {
+        loadFeatured();
+        loadFaqPreview();
+      });
+    </script>
+  </body>
+</html>
