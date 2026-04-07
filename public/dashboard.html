@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Dashboard — CrowdConnect</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/app.css" />
+    <style>
+      /* ── Dashboard KPI Cards ── */
+      .ud-kpis {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 16px;
+        margin-bottom: 28px;
+      }
+      @media (min-width: 640px) {
+        .ud-kpis { grid-template-columns: repeat(3, 1fr); }
+      }
+
+      .ud-kpi {
+        position: relative;
+        background: var(--md-sys-color-surface-container);
+        border: 1px solid var(--md-sys-color-outline);
+        border-radius: 16px;
+        padding: 20px 22px 18px;
+        overflow: hidden;
+        transition: box-shadow 0.25s, transform 0.2s;
+      }
+      .ud-kpi:hover {
+        box-shadow: var(--md-elevation-2);
+        transform: translateY(-2px);
+      }
+      .ud-kpi__icon {
+        position: absolute;
+        top: 18px;
+        right: 18px;
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1rem;
+      }
+      .ud-kpi__icon--donated  { background: rgba(234, 88, 12, 0.12); color: #ea580c; }
+      .ud-kpi__icon--camps    { background: rgba(14, 165, 233, 0.12); color: #0ea5e9; }
+      .ud-kpi__icon--total    { background: rgba(139, 92, 246, 0.12); color: #8b5cf6; }
+
+      .ud-kpi__label {
+        font-size: 0.8125rem;
+        font-weight: 500;
+        color: var(--md-sys-color-on-surface-variant);
+        margin-bottom: 8px;
+      }
+      .ud-kpi__value {
+        font-family: var(--font-display);
+        font-size: 1.85rem;
+        font-weight: 700;
+        color: var(--md-sys-color-on-surface);
+        letter-spacing: -0.02em;
+      }
+
+      /* ── Tabs ── */
+      .ud-tabs {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 24px;
+      }
+      .ud-tab {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 22px;
+        border: none;
+        border-radius: 999px;
+        font-family: inherit;
+        font-size: 0.875rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        background: transparent;
+        color: var(--md-sys-color-on-surface-variant);
+      }
+      .ud-tab.is-active {
+        background: var(--md-sys-color-on-surface);
+        color: var(--md-sys-color-surface);
+      }
+      .ud-tab:not(.is-active):hover {
+        background: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent);
+      }
+      .ud-tab__icon {
+        font-size: 1rem;
+        line-height: 1;
+      }
+
+      /* ── Donation list ── */
+      .ud-list {
+        background: var(--md-sys-color-surface-container);
+        border: 1px solid var(--md-sys-color-outline);
+        border-radius: 16px;
+        overflow: hidden;
+      }
+      .ud-row {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 16px 22px;
+        border-bottom: 1px solid var(--md-sys-color-outline);
+        transition: background 0.15s;
+      }
+      .ud-row:last-child { border-bottom: none; }
+      .ud-row:hover {
+        background: color-mix(in srgb, var(--md-sys-color-primary) 4%, transparent);
+      }
+      .ud-row__info { flex: 1; min-width: 0; }
+      .ud-row__title {
+        font-weight: 600;
+        font-size: 0.9375rem;
+        color: var(--md-sys-color-primary);
+        margin-bottom: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .ud-row__sub {
+        font-size: 0.78rem;
+        color: var(--md-sys-color-on-surface-variant);
+      }
+      .ud-row__right {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-shrink: 0;
+      }
+      .ud-status {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        text-transform: lowercase;
+      }
+      .ud-status--completed {
+        background: rgba(22, 163, 74, 0.12);
+        color: #16a34a;
+      }
+      .ud-status--pending {
+        background: rgba(234, 179, 8, 0.12);
+        color: #ca8a04;
+      }
+      .ud-status--failed {
+        background: rgba(220, 38, 38, 0.12);
+        color: #dc2626;
+      }
+      .ud-amount {
+        font-weight: 700;
+        font-size: 1.05rem;
+        color: var(--md-sys-color-on-surface);
+        min-width: 60px;
+        text-align: right;
+      }
+      .ud-redonate {
+        width: 32px;
+        height: 32px;
+        border: none;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--md-sys-color-on-surface-variant);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        transition: background 0.15s;
+      }
+      .ud-redonate:hover {
+        background: color-mix(in srgb, var(--md-sys-color-primary) 12%, transparent);
+        color: var(--md-sys-color-primary);
+      }
+
+      /* ── Profile tab panel ── */
+      .ud-profile-panel {
+        background: var(--md-sys-color-surface-container);
+        border: 1px solid var(--md-sys-color-outline);
+        border-radius: 16px;
+        padding: 24px;
+      }
+
+      .ud-empty {
+        text-align: center;
+        padding: 48px 24px;
+        color: var(--md-sys-color-on-surface-variant);
+      }
+      .ud-empty__icon { font-size: 2.5rem; margin-bottom: 12px; }
+    </style>
+  </head>
+  <body data-cc-page="dashboard">
+    <div id="cc-header-slot"></div>
+
+    <main class="container animate-in">
+      <section class="userdash">
+        <header style="margin-bottom: 28px">
+          <h1 class="page-title" style="margin-bottom: 4px">My Dashboard</h1>
+          <p class="text-muted" id="ud-subtitle" style="margin: 0">Welcome back</p>
+        </header>
+
+        <!-- KPI Cards -->
+        <div class="ud-kpis" id="ud-kpis">
+          <div class="ud-kpi">
+            <div class="ud-kpi__icon ud-kpi__icon--donated">₹</div>
+            <div class="ud-kpi__label">Total Donated</div>
+            <div class="ud-kpi__value" id="ud-total-donated">₹0</div>
+          </div>
+          <div class="ud-kpi">
+            <div class="ud-kpi__icon ud-kpi__icon--camps">♡</div>
+            <div class="ud-kpi__label">Campaigns Supported</div>
+            <div class="ud-kpi__value" id="ud-camps">0</div>
+          </div>
+          <div class="ud-kpi">
+            <div class="ud-kpi__icon ud-kpi__icon--total">↗</div>
+            <div class="ud-kpi__label">Total Donations</div>
+            <div class="ud-kpi__value" id="ud-count">0</div>
+          </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="ud-tabs" role="tablist">
+          <button type="button" class="ud-tab is-active" data-tab="donations" role="tab" aria-selected="true">
+            <span class="ud-tab__icon">📋</span> Donations
+          </button>
+          <button type="button" class="ud-tab" data-tab="profile" role="tab" aria-selected="false">
+            <span class="ud-tab__icon">👤</span> Profile
+          </button>
+        </div>
+
+        <!-- Donations panel -->
+        <section id="panel-donations" role="tabpanel">
+          <div class="ud-list" id="ud-donation-list">
+            <div class="ud-empty">
+              <div class="ud-empty__icon">⏳</div>
+              <p class="text-muted">Loading your donations…</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Profile panel -->
+        <section id="panel-profile" class="hidden" role="tabpanel">
+          <div class="ud-profile-panel">
+            <h2 style="font-size: 1.15rem; margin: 0 0 8px">Profile Settings</h2>
+            <p class="text-muted" style="margin: 0">
+              Manage your name, email, and password from the
+              <a href="/profile.html">Profile page →</a>
+            </p>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <div id="cc-bottom-slot"></div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/app.js"></script>
+    <script src="/js/shell.js"></script>
+    <script>
+      function fmtINR(n) {
+        return "₹" + Number(n || 0).toLocaleString("en-IN");
+      }
+
+      function statusClass(s) {
+        s = String(s || "").toLowerCase();
+        if (s === "completed") return "ud-status--completed";
+        if (s === "failed") return "ud-status--failed";
+        return "ud-status--pending";
+      }
+
+      function fmtDate(d) {
+        return new Date(d || Date.now()).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        });
+      }
+
+      function escapeHtml(s) {
+        const d = document.createElement("div");
+        d.textContent = s || "";
+        return d.innerHTML;
+      }
+
+      function switchTab(name) {
+        document.querySelectorAll(".ud-tab").forEach((b) => {
+          const active = b.getAttribute("data-tab") === name;
+          b.classList.toggle("is-active", active);
+          b.setAttribute("aria-selected", String(active));
+        });
+        document.getElementById("panel-donations").classList.toggle("hidden", name !== "donations");
+        document.getElementById("panel-profile").classList.toggle("hidden", name !== "profile");
+      }
+
+      async function loadDashboard() {
+        if (!CCApi.getToken()) {
+          document.querySelector(".userdash").innerHTML =
+            '<div class="ud-profile-panel" style="text-align:center;padding:48px"><p class="text-muted">Please log in to view your dashboard.</p><a class="btn btn--filled" href="/auth/login.html">Log in</a></div>';
+          return;
+        }
+
+        try {
+          const { user } = await CCApi.request("/auth/me");
+          document.getElementById("ud-subtitle").textContent = "Welcome back, " + (user.name || "friend");
+
+          const { donations } = await CCApi.request("/donations/mine");
+          const listEl = document.getElementById("ud-donation-list");
+
+          // KPIs
+          const total = donations.reduce((sum, d) => sum + (d.amount || 0), 0);
+          const campaigns = new Set(donations.map((d) => String((d.campaign && d.campaign._id) || d.campaign || "")));
+          document.getElementById("ud-total-donated").textContent = fmtINR(total);
+          document.getElementById("ud-camps").textContent = String(campaigns.size);
+          document.getElementById("ud-count").textContent = String(donations.length);
+
+          if (!donations.length) {
+            listEl.innerHTML =
+              '<div class="ud-empty"><div class="ud-empty__icon">💝</div><p class="text-muted">You have not donated yet.</p><a href="/campaigns.html" class="btn btn--filled" style="margin-top:12px">Discover Campaigns</a></div>';
+          } else {
+            listEl.innerHTML = donations
+              .map((d) => {
+                const campTitle = d.campaign && d.campaign.title ? d.campaign.title : "Campaign";
+                const campId = d.campaign && d.campaign._id ? d.campaign._id : "";
+                const isActive = d.campaign && d.campaign.status === "active";
+                return `
+                <div class="ud-row">
+                  <div class="ud-row__info">
+                    <div class="ud-row__title">${escapeHtml(campTitle)}</div>
+                    <div class="ud-row__sub">${fmtDate(d.createdAt)} · TXN${escapeHtml((d.transactionId || "").slice(0, 20))}</div>
+                  </div>
+                  <div class="ud-row__right">
+                    <span class="ud-status ${statusClass(d.status)}">${escapeHtml(d.status || "pending")}</span>
+                    <span class="ud-amount">${fmtINR(d.amount)}</span>
+                    ${isActive ? `<a href="/donate.html?id=${campId}" class="ud-redonate" title="Donate again">↻</a>` : '<span class="ud-redonate" style="opacity:0.3;cursor:default">↻</span>'}
+                  </div>
+                </div>`;
+              })
+              .join("");
+          }
+
+          // Tab switching
+          document.querySelectorAll(".ud-tab").forEach((b) => {
+            b.addEventListener("click", () => switchTab(b.getAttribute("data-tab")));
+          });
+        } catch (e) {
+          document.querySelector(".userdash").innerHTML =
+            '<div class="ud-profile-panel"><p class="text-muted">Could not load dashboard. ' + escapeHtml(e.message) + "</p></div>";
+        }
+      }
+
+      document.addEventListener("DOMContentLoaded", loadDashboard);
+    </script>
+  </body>
+</html>

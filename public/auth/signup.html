@@ -24,6 +24,9 @@
         <div class="field">
           <label for="password">Password (min 6)</label>
           <input id="password" type="password" autocomplete="new-password" minlength="6" required />
+          <button type="button" class="btn btn--text" id="toggle-password" style="padding: 0; min-height: 32px; justify-content: flex-start">
+            Show password
+          </button>
         </div>
         <p id="err" class="text-muted hidden" style="color: #b91c1c; margin-bottom: 12px"></p>
         <button type="submit" class="btn btn--filled" id="submit-btn" style="width: 100%">Sign up</button>
@@ -67,6 +70,14 @@
         } finally {
           btn.disabled = false;
         }
+      });
+
+      const toggleBtn = document.getElementById("toggle-password");
+      const passInput = document.getElementById("password");
+      toggleBtn.addEventListener("click", () => {
+        const nextType = passInput.type === "password" ? "text" : "password";
+        passInput.type = nextType;
+        toggleBtn.textContent = nextType === "password" ? "Show password" : "Hide password";
       });
     </script>
   </body>

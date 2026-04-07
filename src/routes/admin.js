@@ -2,6 +2,7 @@ const express = require("express");
 const { body, validationResult } = require("express-validator");
 const Campaign = require("../models/Campaign");
 const Donation = require("../models/Donation");
+const User = require("../models/User");
 const { requireAuth, requireRole } = require("../middleware/auth");
 
 const router = express.Router();
@@ -52,6 +53,43 @@ router.patch(
     }
     await c.save();
     res.json({ campaign: c });
+  }
+);
+
+// Staff create campaign (popup)
+router.post(
+  "/campaigns",
+  [
+    body("title").trim().notEmpty(),
+    body("description").trim().notEmpty(),
+    body("goalAmount").isFloat({ min: 1 }),
+    body("category").optional().isIn(["education", "health", "environment", "community", "other"]),
+    body("deadline").optional().isISO8601(),
+    body("status").optional().isIn(["pending", "active", "completed", "rejected", "blocked"]),
+    body("mediaUrl").optional().trim().isLength({ min: 1, max: 5000 }),
+    body("featured").optional().isBoolean(),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+    const { title, description, goalAmount, category, deadline, status, mediaUrl, featured } = req.body;
+    const media = [];
+    if (mediaUrl) media.push(mediaUrl);
+
+    const campaign = await Campaign.create({
+      title,
+      description,
+      goalAmount,
+      category: category || "other",
+      deadline: deadline ? new Date(deadline) : undefined,
+      status: status || "pending",
+      media,
+      featured: featured ?? false,
+      creator: req.user._id,
+    });
+
+    res.status(201).json({ campaign });
   }
 );
 
@@ -110,6 +148,52 @@ router.get("/analytics/summary", async (req, res) => {
     lifetime: agg || { totalRaised: 0, totalNet: 0, totalFees: 0, count: 0 },
     thisMonth: monthly[0]?.total || 0,
     topCampaigns,
+  });
+});
+
+// Data for the dashboard overview UI (cards + charts)
+router.get("/analytics/dashboard", async (req, res) => {
+  const [registeredUsers, activeCampaignsCount, totalDonorsAgg, totalRaisedAgg] = await Promise.all([
+    User.countDocuments({ blocked: { $ne: true } }),
+    Campaign.countDocuments({ status: "active" }),
+    Campaign.aggregate([{ $match: { status: { $in: ["active", "completed"] } } }, { $group: { _id: null, total: { $sum: "$donorCount" } } }]),
+    Donation.aggregate([
+      { $match: { status: "completed" } },
+      { $group: { _id: null, totalRaised: { $sum: "$amount" } } },
+    ]),
+  ]);
+
+  const totalDonors = totalDonorsAgg[0]?.total || 0;
+  const totalRaised = totalRaisedAgg[0]?.totalRaised || 0;
+
+  const start = new Date(Date.now() - 30 * 86400000);
+  const monthlyDonations = await Donation.aggregate([
+    { $match: { status: "completed", createdAt: { $gte: start } } },
+    {
+      $group: {
+        _id: { $dateToString: { format: "%b %d", date: "$createdAt" } },
+        total: { $sum: "$amount" },
+      },
+    },
+    { $sort: { _id: 1 } },
+    { $limit: 12 },
+  ]);
+
+  // Pie data by category (use totals of raisedAmount)
+  const categoryTotals = await Campaign.aggregate([
+    { $match: { status: { $in: ["active", "completed"] } } },
+    { $group: { _id: "$category", totalRaised: { $sum: "$raisedAmount" }, campaigns: { $sum: 1 } } },
+  ]);
+
+  res.json({
+    cards: {
+      totalRaised,
+      activeCampaigns: activeCampaignsCount,
+      totalDonors,
+      registeredUsers,
+    },
+    monthlyDonationsByDay: monthlyDonations.map((d) => ({ day: d._id, total: d.total })),
+    categoryTotals: categoryTotals.map((c) => ({ category: c._id, totalRaised: c.totalRaised, campaigns: c.campaigns })),
   });
 });
 
